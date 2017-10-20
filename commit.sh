@@ -2,13 +2,13 @@
 read -p "Commit description: " desc
 git status &&\
 echo "Aperte <ENTER> para ADD"
-read ' ' 
+read '' 
 git add . && \
 git add -u && \
 echo "Aperte <ENTER> para COMMIT"
-read ' ' 
+read '' 
 git commit -m "$desc" && \
 echo "Aperte <ENTER> para PUSH"
-read ' ' 
+read '' 
 git push origin master
 
