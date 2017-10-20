@@ -8,7 +8,9 @@ const int pinTemp1 = 2;
 
 long buffer[NUM_READS];
 int index;
-const unsigned long tempo =600000; //10 minutos
+//const unsigned long tempo =600000; //10 minutos
+
+const unsigned long tempo =1000; //10 minutos
 /// @brief Structure to be used in percentage and resistance values matrix to be filtered (have to be in pairs)
 typedef struct {
 	int moisture; //!< Moisture

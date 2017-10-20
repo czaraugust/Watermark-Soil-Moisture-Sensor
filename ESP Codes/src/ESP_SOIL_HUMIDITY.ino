@@ -1,127 +1,134 @@
-
-/*
-
-
-ESSE CÓDIGO USA SOCKET, PORÉM É MAIS FÁCIL E SEGURO UTILIZAR MQTT.
-VER: https://github.com/czaraugust/Weather_Station-MPPT/blob/master/ESP_Codes/src/main.ino
-
-*/
-
-
 #include <ESP8266WiFi.h>
-#include <WiFiClient.h>
-String temp = " ";
-const char* ssid = "IC-ALUNOS";
-const char* password = "icomputacaoufal";
-int count = 0;
+#include <PubSubClient.h>
 
+// Update these with values suitable for your network.
 
-const uint16_t port = 50939;
-const char * host = "172.20.8.165"; // ip or dns
+const char* ssid = "EASY";
+const char* password = "tv123456";
+const char* mqtt_server = "192.168.0.168";
+const char* mainTopic = "sensor";
+//const uint16_t port = 50939;
 
-WiFiClient client;
+WiFiClient espClient;
+PubSubClient client(espClient);
+long lastMsg = 0;
+char msg[50];
+int value = 0;
 
+void setup_wifi() {
 
+  /*WiFi.mode(WIFI_STA);
+  WiFi.disconnect();*/
+  delay(10);
+  // We start by connecting to a WiFi network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
 
-char ControleMaquinaEstado;
+  WiFi.begin(ssid, password);
 
-void setup(){
-
-    Serial.begin(115200);
-    Serial.println("Setup done");
-    Serial.println("scan start");
-
-    // WiFi.scanNetworks will return the number of networks found
-    int n = WiFi.scanNetworks();
-    Serial.println("scan done");
-    if (n == 0)
-     Serial.println("no networks found");
-    else
-    {
-     Serial.print(n);
-     Serial.println(" networks found");
-     for (int i = 0; i < n; ++i)
-     {
-       // Print SSID and RSSI for each network found
-       Serial.print(i + 1);
-       Serial.print(": ");
-       Serial.print(WiFi.SSID(i));
-       Serial.print(" (");
-       Serial.print(WiFi.RSSI(i));
-       Serial.print(")");
-       Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*");
-       delay(10);
-     }
-    }
-    Serial.println("");
-
-
-    Serial.println();
-    Serial.println();
-    Serial.print("Connecting to ");
-    Serial.println(ssid);
-
-    WiFi.begin(ssid, password);
-
-    while (WiFi.status() != WL_CONNECTED)
-   {
+ /*while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
-   }
+  }*/
 
-   Serial.println(WiFi.localIP());
-   Serial.println("WiFi connected");
-   delay (1000);
+  //randomSeed(micros());
 
-    Serial.print("connecting to ");
-    Serial.println(host);
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
+
+  // Switch on the LED if an 1 was received as first character
+  if ((char)payload[0] == '1') {
+    digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
+    // but actually the LED is on; this is because
+    // it is acive low on the ESP-01)
+  } else {
+    digitalWrite(BUILTIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
+  }
+
+}
+
+void reconnect() {
+
+  /*while (WiFi.status() != WL_CONNECTED){
+    setup_wifi();
+  }*/
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Create a random client ID
+    String clientId = "ESP8266Client-";
+    //clientId += String(WiFi.macAddress(), HEX);
+    // Attempt to connect
+    if (client.connect(clientId.c_str())) {
+      Serial.println("connected");
+      // Once connected, publish an announcement...
+      client.publish(mainTopic, "HI!");
+      // ... and resubscribe
+      client.subscribe("devicesub");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
+void setup() {
+
+  Serial.begin(115200);
+  pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
+
+   setup_wifi();
+
+
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+
+
+  delay(1000);
+}
+
+void loop() {
+
+
+
+
+
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+
+
+
+
+
+    while (Serial.available() > 0) {
+
+      char incomingByte = Serial.read();
+      if (incomingByte == '@'){
+        String values = "\0";
+          values += Serial.readString();
+          client.publish(mainTopic, values.c_str());
+
+      }
+
     }
 
 
-
-  void loop() {
-
-    long rssi  = WiFi.RSSI();
-
-
-    if (!client.connect(host, port)) {
-
-      Serial.println("connection failed");
-      Serial.println("wait 5 sec...");
-      delay(5000);
-      Serial.print("connecting to ");
-      Serial.println(host);
-      count++;
-      if (count > 50 && count < 75) {
-        WiFi.begin(ssid, password);
-        if (WiFi.status() != WL_CONNECTED)
-        {
-          delay(500);
-          Serial.print(".");
-        }
-
-
-        Serial.println(WiFi.localIP());
-        Serial.println("WiFi connected");
-        count = 0;
-      }
-      return;
-      }
-
-            while (Serial.available() > 0) {
-
-              char incomingByte = Serial.read();
-              if (incomingByte == '@'){
-                String values = String(rssi);
-                 values +=  "|";
-                values += Serial.readString();
-
-                client.print(values);
-              }
-
-            }
-
-    delay(1000);
-
-
-  }
+}
